@@ -1,16 +1,19 @@
 {
-  "name": "@rnr/starter-base",
+  "name": "wingz-on-chain",
   "main": "index.js",
   "version": "1.0.0",
   "scripts": {
-    "dev": "expo start -c --ios",
-    "dev:web": "expo start -c --web",
+    "dev": "expo start -c --web",
+    "dev:ios": "expo start -c --ios",
     "dev:android": "expo start -c --android",
     "android": "expo start -c --android",
     "ios": "expo start -c --ios",
     "web": "expo start -c --web",
     "clean": "rm -rf .expo node_modules",
-    "postinstall": "npx tailwindcss -i ./global.css -o ./node_modules/.cache/nativewind/global.css"
+    "postinstall": "npx tailwindcss -i ./global.css -o ./node_modules/.cache/nativewind/global.css",
+    "lint": "expo lint",
+    "prepare": "husky",
+    "commit": "git-cz"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "1.23.1",
@@ -47,8 +50,38 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
+    "@commitlint/cli": "19.2.0",
+    "@commitlint/config-conventional": "19.1.0",
     "@types/react": "~18.2.79",
+    "commitizen": "^4.3.0",
+    "cz-conventional-changelog": "^3.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-expo": "^7.1.2",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "husky": "9.0.11",
+    "lint-staged": "15.2.2",
+    "prettier": "^3.3.3",
     "typescript": "^5.3.3"
   },
-  "private": true
+  "private": true,
+  "config": {
+    "commitizen": {
+      "path": "node_modules/cz-conventional-changelog"
+    }
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js}": [
+      "eslint --config .eslintrc.js"
+    ],
+    "*.{ts,tsx,js,json,html,yml,css,less,scss,md}": [
+      "prettier --write"
+    ]
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "commit-msg": "commitlint --config .commitlintrc.js -E HUSKY_GIT_PARAMS"
+    }
+  }
 }
