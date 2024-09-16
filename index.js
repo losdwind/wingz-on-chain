@@ -1,9 +1,13 @@
 import { registerRootComponent } from 'expo';
 import { ExpoRoot } from 'expo-router';
+import { server } from './mock/server';
+import './mock/msw.polyfills';
 
-// https://docs.expo.dev/router/reference/troubleshooting/#expo_router_app_root-not-defined
+server.listen({ onUnhandledRequest: 'bypass' });
+server.events.on('request:start', ({ request }) => {
+  console.log('Outgoing:', request.method, request.url);
+});
 
-// Must be exported or Fast Refresh won't update the context
 export function App() {
   const ctx = require.context('./app');
   return <ExpoRoot context={ctx} />;
