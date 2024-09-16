@@ -1,13 +1,8 @@
-import * as React from 'react';
-import { View } from 'react-native';
-import Animated, {
-  FadeInUp,
-  FadeOutDown,
-  LayoutAnimationConfig,
-} from 'react-native-reanimated';
-import { Info } from '~/lib/icons/Info';
-import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar';
-import { Button } from '~/components/ui/button';
+import React, { useRef, useState } from 'react';
+import { View, Dimensions } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import { StyleSheet } from 'react-native';
+import { initialRegion, Ride } from '~/mock/handlers';
 import {
   Card,
   CardContent,
@@ -16,98 +11,231 @@ import {
   CardHeader,
   CardTitle,
 } from '~/components/ui/card';
-import { Progress } from '~/components/ui/progress';
 import { Text } from '~/components/ui/text';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '~/components/ui/tooltip';
+import Carousel, {
+  CarouselRenderItem,
+  ICarouselInstance,
+} from 'react-native-reanimated-carousel';
+import Animated, {
+  Extrapolate,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
+import { MapViewRoute } from 'react-native-maps-routes';
+import { rides } from '~/mock/handlers';
 
-const GITHUB_AVATAR_URI =
-  'https://i.pinimg.com/originals/ef/a2/8d/efa28d18a04e7fa40ed49eeb0ab660db.jpg';
+const PAGE_WIDTH = Dimensions.get('screen').width;
 
-export default function Screen() {
-  const [progress, setProgress] = React.useState(78);
+export default function HomeScreen() {
+  const [region, setRegion] = useState(initialRegion);
+  const [currentRide, setCurrentRide] = useState<Ride>();
+  const progressValue = useSharedValue<number>(0);
+  const carouselRef = useRef<ICarouselInstance>(null);
+  const mapRef = useRef<MapView>(null);
 
-  function updateProgressValue() {
-    setProgress(Math.floor(Math.random() * 100));
-  }
+  const onRegionChangeComplete = (region: Region) => {
+    setRegion(region);
+  };
+
+  const getCurrentSRideRoute = (ride: Ride) => {
+    return [ride.pickupLocation, ride.destination];
+  };
+
+  const fitToRide = (index: number) => {
+    mapRef.current?.fitToCoordinates(getCurrentSRideRoute(rides[index]), {
+      edgePadding: {
+        top: 20,
+        right: 20,
+        bottom: 20 + PAGE_WIDTH * 0.6,
+        left: 20,
+      },
+      animated: true,
+    });
+  };
+
   return (
-    <View className="flex-1 justify-center items-center gap-5 p-6 bg-secondary/30">
-      <Card className="w-full max-w-sm p-6 rounded-2xl">
-        <CardHeader className="items-center">
-          <Avatar alt="Rick Sanchez's Avatar" className="w-24 h-24">
-            <AvatarImage source={{ uri: GITHUB_AVATAR_URI }} />
-            <AvatarFallback>
-              <Text>RS</Text>
-            </AvatarFallback>
-          </Avatar>
-          <View className="p-3" />
-          <CardTitle className="pb-2 text-center">Rick Sanchez</CardTitle>
-          <View className="flex-row">
-            <CardDescription className="text-base font-semibold">
-              Scientist
-            </CardDescription>
-            <Tooltip delayDuration={150}>
-              <TooltipTrigger className="px-2 pb-0.5 active:opacity-50">
-                <Info
-                  size={14}
-                  strokeWidth={2.5}
-                  className="w-4 h-4 text-foreground/70"
-                />
-              </TooltipTrigger>
-              <TooltipContent className="py-2 px-4 shadow">
-                <Text className="native:text-lg">Freelance</Text>
-              </TooltipContent>
-            </Tooltip>
-          </View>
-        </CardHeader>
-        <CardContent>
-          <View className="flex-row justify-around gap-3">
-            <View className="items-center">
-              <Text className="text-sm text-muted-foreground">Dimension</Text>
-              <Text className="text-xl font-semibold">C-137</Text>
-            </View>
-            <View className="items-center">
-              <Text className="text-sm text-muted-foreground">Age</Text>
-              <Text className="text-xl font-semibold">70</Text>
-            </View>
-            <View className="items-center">
-              <Text className="text-sm text-muted-foreground">Species</Text>
-              <Text className="text-xl font-semibold">Human</Text>
-            </View>
-          </View>
-        </CardContent>
-        <CardFooter className="flex-col gap-3 pb-0">
-          <View className="flex-row items-center overflow-hidden">
-            <Text className="text-sm text-muted-foreground">Productivity:</Text>
-            <LayoutAnimationConfig skipEntering>
-              <Animated.View
-                key={progress}
-                entering={FadeInUp}
-                exiting={FadeOutDown}
-                className="w-11 items-center">
-                <Text className="text-sm font-bold text-sky-600">
-                  {progress}%
-                </Text>
-              </Animated.View>
-            </LayoutAnimationConfig>
-          </View>
-          <Progress
-            value={progress}
-            className="h-2"
-            indicatorClassName="bg-sky-600"
+    <View style={styles.container}>
+      // Map View
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        provider={PROVIDER_GOOGLE}
+        region={region}
+        showsUserLocation={true}
+        followsUserLocation={true}
+        onRegionChangeComplete={onRegionChangeComplete}>
+        {rides.map((ride, index) => (
+          <Marker
+            key={ride.id}
+            coordinate={ride.pickupLocation}
+            title={ride.pickupTime}
+            description={ride.pickupLocation + '/n' + ride.userId}
           />
-          <View />
-          <Button
-            variant="outline"
-            className="shadow shadow-foreground/5"
-            onPress={updateProgressValue}>
-            <Text>Update</Text>
-          </Button>
-        </CardFooter>
-      </Card>
+        ))}
+        {rides.map((ride, index) => (
+          <Marker
+            key={ride.id}
+            coordinate={ride.destination}
+            title={ride.pickupTime}
+            description={ride.destination + '/n' + ride.userId}
+            pinColor="blue"
+          />
+        ))}
+        {currentRide && (
+          <MapViewRoute
+            origin={currentRide.pickupLocation}
+            destination={currentRide.destination}
+            apiKey={'AIzaSyA4vZo6eMHhPQCyhzb3l7LiEo2mZZBK2UY'}
+            mode="DRIVE"
+            onError={(error) => console.log(error.toString())}
+          />
+        )}
+      </MapView>
+      <View style={styles.itemsContainer}>
+        <Carousel
+          ref={carouselRef}
+          vertical={false}
+          width={PAGE_WIDTH}
+          height={PAGE_WIDTH * 0.6}
+          loop={false}
+          pagingEnabled={true}
+          snapEnabled={true}
+          autoPlay={false}
+          autoPlayInterval={1500}
+          onProgressChange={(_, absoluteProgress) =>
+            (progressValue.value = absoluteProgress)
+          }
+          mode="parallax"
+          modeConfig={{
+            parallaxScrollingScale: 0.9,
+            parallaxScrollingOffset: 50,
+          }}
+          data={rides}
+          renderItem={renderedItem}
+          onSnapToItem={(index) => {
+            setCurrentRide(rides[index]);
+            fitToRide(index);
+          }}
+        />
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            width: 100,
+            alignSelf: 'center',
+          }}>
+          {rides &&
+            rides.map((ride, index) => {
+              return (
+                <PaginationItem
+                  backgroundColor={'gray'}
+                  animValue={progressValue}
+                  index={index}
+                  key={index}
+                  isRotate={false}
+                  length={rides.length}
+                />
+              );
+            })}
+        </View>
+      </View>
     </View>
   );
 }
+
+const renderedItem: CarouselRenderItem<Ride> = ({ item }) => {
+  return (
+    <Card key={item.id}>
+      <CardHeader>
+        <CardTitle>Ride Order</CardTitle>
+        <CardDescription>Card Description</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Text>{item.userId}</Text>
+        <Text>{item.pickupLocation.toString()}</Text>
+
+        <Text>{item.pickupTime}</Text>
+        <Text>{item.destination.toString()}</Text>
+      </CardContent>
+      <CardFooter>
+        <Text>Status: {item.status}</Text>
+      </CardFooter>
+    </Card>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  itemsContainer: {
+    backgroundColor: 'transparent',
+    position: 'absolute',
+    paddingTop: 450,
+  },
+  map: {
+    width: '100%',
+    height: '100%',
+  },
+});
+
+const PaginationItem: React.FC<{
+  index: number;
+  backgroundColor: string;
+  length: number;
+  animValue: Animated.SharedValue<number>;
+  isRotate?: boolean;
+}> = (props) => {
+  const { animValue, index, length, backgroundColor, isRotate } = props;
+  const width = 10;
+
+  const animStyle = useAnimatedStyle(() => {
+    let inputRange = [index - 1, index, index + 1];
+    let outputRange = [-width, 0, width];
+
+    if (index === 0 && animValue?.value > length - 1) {
+      inputRange = [length - 1, length, length + 1];
+      outputRange = [-width, 0, width];
+    }
+
+    return {
+      transform: [
+        {
+          translateX: interpolate(
+            animValue?.value,
+            inputRange,
+            outputRange,
+            Extrapolate.CLAMP
+          ),
+        },
+      ],
+    };
+  }, [animValue, index, length]);
+  return (
+    <View
+      style={{
+        backgroundColor: 'white',
+        width,
+        height: width,
+        borderRadius: 50,
+        overflow: 'hidden',
+        transform: [
+          {
+            rotateZ: isRotate ? '90deg' : '0deg',
+          },
+        ],
+      }}>
+      <Animated.View
+        style={[
+          {
+            borderRadius: 50,
+            backgroundColor,
+            flex: 1,
+          },
+          animStyle,
+        ]}
+      />
+    </View>
+  );
+};
