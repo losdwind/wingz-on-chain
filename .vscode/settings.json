@@ -4,6 +4,7 @@
     "commitlint",
     "lucide",
     "nativewind",
+    "reduxjs",
     "tailwindcss",
     "wingz",
     "zustand"
