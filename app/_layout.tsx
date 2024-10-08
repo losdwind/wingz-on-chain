@@ -5,7 +5,7 @@ import { Theme, ThemeProvider } from '@react-navigation/native';
 import { SplashScreen, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as React from 'react';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 import { NAV_THEME } from '~/lib/constants';
 import { useColorScheme } from '~/lib/useColorScheme';
 import { PortalHost } from '@rn-primitives/portal';
@@ -14,6 +14,7 @@ import { setAndroidNavigationBar } from '~/lib/android-navigation-bar';
 import { Provider } from 'react-redux';
 import { store } from '~/store/store';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import UserSwitch from '~/components/auth/userSwitch';
 
 const LIGHT_THEME: Theme = {
   dark: false,
@@ -75,8 +76,15 @@ export default function RootLayout() {
             <Stack.Screen
               name="index"
               options={{
-                title: 'Starter Base',
-                headerRight: () => <ThemeToggle />,
+                title: 'Wingz',
+                headerRight: () => {
+                  return (
+                    <View className="flex-row items-center gap-2">
+                      <UserSwitch />
+                      <ThemeToggle />
+                    </View>
+                  );
+                },
               }}
             />
           </Stack>
