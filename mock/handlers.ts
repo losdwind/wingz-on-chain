@@ -1,66 +1,96 @@
-import { http, HttpResponse } from 'msw';
+import { bypass, http, HttpResponse, passthrough } from 'msw';
 import { faker } from '@faker-js/faker';
 import { LatLng, Region } from 'react-native-maps';
+import { Driver, Ride, Passenger } from '~/lib/types';
 
-export const initialRegion: Region = {
-  latitude: 37.78815,
-  longitude: -122.4324,
-  latitudeDelta: 0.0922,
-  longitudeDelta: 0.0421,
-};
+export const generateFakeUser = (): Passenger => ({
+  id: faker.string.uuid(),
+  PassengerId: faker.string.uuid(),
+});
 
-export interface Ride {
-  id: string;
-  userId: string;
-  driverId: string | null;
-  pickupLocation: { latitude: number; longitude: number };
-  destination: { latitude: number; longitude: number };
-  status:
-    | 'pending'
-    | 'accepted'
-    | 'declined'
-    | 'started'
-    | 'picked-up'
-    | 'dropped-off';
-  pickupTime: string;
-  timestamp: string;
-}
+export const generateFakeDriver = (): Driver => ({
+  id: faker.string.uuid(),
+  driverId: faker.string.uuid(),
+});
 
-const genFakeLocation = (initialRegion: Region) => {
+const genFakeLocation = (region: Region) => {
+  const radius = Math.min(region.latitudeDelta, region.longitudeDelta) / 2;
+  const radiusInKm = radius * 1000;
+
   const [latitude, longitude] = faker.location.nearbyGPSCoordinate({
-    origin: [initialRegion.latitude, initialRegion.longitude],
-    radius: 1,
+    origin: [region.latitude, region.longitude],
+    radius: radiusInKm,
+    isMetric: true,
   });
   return { latitude, longitude } as LatLng;
 };
 
-export const generateFakeRide = (): Ride => ({
-  id: faker.string.uuid(),
-  userId: faker.string.uuid(),
-  driverId: faker.datatype.boolean() ? faker.string.uuid() : null,
-  pickupLocation: genFakeLocation(initialRegion),
-  destination: genFakeLocation(initialRegion),
-  status: faker.helpers.arrayElement([
+export let users: Passenger[] = Array.from({ length: 5 }, generateFakeUser);
+export let drivers: Driver[] = Array.from({ length: 2 }, generateFakeDriver);
+
+export const generateFakeRide = (region: Region): Ride => {
+  const userIndex = faker.number.int({ min: 0, max: users.length - 1 });
+  const user = users[userIndex];
+
+  const status = faker.helpers.arrayElement([
     'pending',
     'accepted',
     'declined',
     'started',
     'picked-up',
     'dropped-off',
-  ]) as Ride['status'],
-  pickupTime: faker.date.future().toISOString(),
-  timestamp: faker.date.recent().toISOString(),
-});
+  ]) as Ride['status'];
 
-export let rides: Ride[] = Array.from({ length: 10 }, generateFakeRide);
+  const driverIndex = faker.number.int({ min: 0, max: drivers.length - 1 });
+  const driver = drivers[driverIndex];
+
+  return {
+    id: faker.string.uuid(),
+    PassengerId: user.PassengerId,
+    driverId: status === 'pending' ? null : driver.driverId,
+    pickupLocation: genFakeLocation(region),
+    destination: genFakeLocation(region),
+    status: status,
+    pickupTime: faker.date.future().toISOString(),
+    timestamp: faker.date.recent().toISOString(),
+  };
+};
+
+export let rides: Ride[];
 
 export const handlers = [
-  http.get('http://example.com/api/rides', () => {
-    console.log('rides in mock', rides);
-    return HttpResponse.json(rides);
+  http.get('http://example.com/api/rides', (request) => {
+    const url = new URL(request.request.url);
+    const latitude = url.searchParams.get('latitude');
+    const longitude = url.searchParams.get('longitude');
+    const latitudeDelta = url.searchParams.get('latitudeDelta');
+    const longitudeDelta = url.searchParams.get('longitudeDelta');
+
+    if (!latitude || !longitude || !latitudeDelta || !longitudeDelta) {
+      return HttpResponse.json(
+        {
+          error:
+            'Missing required parameters: latitude, longitude, latitudeDelta, longitudeDelta',
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!rides) {
+      rides = Array.from({ length: 50 }, () =>
+        generateFakeRide({
+          latitude: parseFloat(latitude),
+          longitude: parseFloat(longitude),
+          latitudeDelta: 0.0922,
+          longitudeDelta: 0.0421,
+        } as Region)
+      );
+    }
+
+    return HttpResponse.json(rides.filter((ride) => ride.status === 'pending'));
   }),
 
-  http.get('/api/rides/:id', ({ params }) => {
+  http.get('http://example.com/api/rides/:id', ({ params }) => {
     const { id } = params;
     const ride = rides.find((r) => r.id === id);
     return ride
@@ -68,33 +98,58 @@ export const handlers = [
       : new HttpResponse(null, { status: 404 });
   }),
 
-  http.post('/api/rides/:id/accept', async ({ params, request }) => {
-    const { id } = params;
-    const { driverId } = (await request.json()) as { driverId: string };
-    const ride = rides.find((r) => r.id === id);
-    if (ride && ride.status === 'pending') {
-      ride.driverId = driverId;
-      ride.status = 'accepted';
-      return HttpResponse.json(ride);
+  http.post(
+    'http://example.com/api/rides/:id/accept',
+    async ({ params, request }) => {
+      const { id } = params;
+      const { driverId } = (await request.json()) as { driverId: string };
+      const ride = rides.find((r) => r.id === id);
+      if (ride && ride.status === 'pending') {
+        ride.driverId = driverId;
+        ride.status = 'accepted';
+        return HttpResponse.json(ride);
+      }
+      return new HttpResponse(null, { status: 400 });
     }
-    return new HttpResponse(null, { status: 400 });
-  }),
+  ),
 
-  http.patch('/api/rides/:id/status', async ({ params, request }) => {
-    const { id } = params;
-    const { status } = (await request.json()) as { status: Ride['status'] };
-    const ride = rides.find((r) => r.id === id);
-    if (ride) {
-      ride.status = status;
-      return HttpResponse.json(ride);
+  http.patch(
+    'http://example.com/api/rides/:id/status',
+    async ({ params, request }) => {
+      const { id } = params;
+      const { status } = (await request.json()) as { status: Ride['status'] };
+      const ride = rides.find((r) => r.id === id);
+      if (ride) {
+        ride.status = status;
+        return HttpResponse.json(ride);
+      }
+      return new HttpResponse(null, { status: 404 });
     }
-    return new HttpResponse(null, { status: 404 });
-  }),
+  ),
 
-  http.post('/api/rides', () => {
-    const newRide = generateFakeRide();
+  http.post('http://example.com/api/rides', async ({ params, request }) => {
+    const body = await request.json();
+    // Extract the region from the request body
+    const { region } = body;
+
+    const newRide = generateFakeRide(region);
     newRide.status = 'pending';
     rides.push(newRide);
     return HttpResponse.json(newRide, { status: 201 });
   }),
+
+  // http.post(
+  //   'https://routes.googleapis.com/directions/v2:computeRoutes',
+  //   async ({ params, request }) => {
+  //     console.log('+++++++', params, request);
+  //     // Forward the request to the real Google API
+  //     const response = await fetch(bypass(new Request(request.url, request)));
+  //     console.log('------', response);
+  //     const routes = await response.json();
+
+  //     return HttpResponse.json({
+  //       routes,
+  //     });
+  //   }
+  // ),
 ];

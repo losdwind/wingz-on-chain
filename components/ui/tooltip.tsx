@@ -11,15 +11,17 @@ const TooltipTrigger = TooltipPrimitive.Trigger;
 
 const TooltipContent = React.forwardRef<
   React.ElementRef<typeof TooltipPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> & { portalHost?: string }
+  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> & {
+    portalHost?: string;
+  }
 >(({ className, sideOffset = 4, portalHost, ...props }, ref) => (
   <TooltipPrimitive.Portal hostName={portalHost}>
-    <TooltipPrimitive.Overlay style={Platform.OS !== 'web' ? StyleSheet.absoluteFill : undefined}>
+    <TooltipPrimitive.Overlay
+      style={Platform.OS !== 'web' ? StyleSheet.absoluteFill : undefined}>
       <Animated.View
         entering={Platform.select({ web: undefined, default: FadeIn })}
-        exiting={Platform.select({ web: undefined, default: FadeOut })}
-      >
-        <TextClassContext.Provider value='text-sm native:text-base text-popover-foreground'>
+        exiting={Platform.select({ web: undefined, default: FadeOut })}>
+        <TextClassContext.Provider value="text-sm native:text-base text-popover-foreground">
           <TooltipPrimitive.Content
             ref={ref}
             sideOffset={sideOffset}

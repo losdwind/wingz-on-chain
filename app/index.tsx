@@ -1,169 +1,131 @@
 import React, { useRef, useState } from 'react';
 import { View, Dimensions } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+
+import MapView, {
+  Details,
+  PROVIDER_GOOGLE,
+  Region,
+  UserLocationChangeEvent,
+} from 'react-native-maps';
 import { StyleSheet } from 'react-native';
-import { initialRegion, Ride } from '~/mock/handlers';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '~/components/ui/card';
-import { Text } from '~/components/ui/text';
-import Carousel, {
-  CarouselRenderItem,
-  ICarouselInstance,
-} from 'react-native-reanimated-carousel';
-import Animated, {
-  Extrapolate,
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-} from 'react-native-reanimated';
-import { MapViewRoute } from 'react-native-maps-routes';
-import { rides } from '~/mock/handlers';
+import { useGetRidesQuery } from '~/store/api/rideApi';
+import { Ride } from '~/lib/types';
+import useLocation from '~/hooks/useLocation';
+import { useColorScheme } from '~/lib/useColorScheme';
+import { nightMapTheme } from '~/lib/nightMapTheme';
+import { useAppSelector } from '~/store/hooks';
+import { selectOngoingRides } from '~/store/rideSlice';
+import MarkerRide from '~/components/home/MarkerRide';
+import { RidesCarousel } from '~/components/home/RidesCarousel';
+import { Skeleton } from '~/components/ui/skeleton';
+import { ErrorMessage } from '~/components/home/ErrorMessage';
 
 const PAGE_WIDTH = Dimensions.get('screen').width;
 
 export default function HomeScreen() {
-  const [region, setRegion] = useState(initialRegion);
+  const { isDarkColorScheme } = useColorScheme();
+  const { region, errorMsg } = useLocation();
   const [currentRide, setCurrentRide] = useState<Ride>();
-  const progressValue = useSharedValue<number>(0);
-  const carouselRef = useRef<ICarouselInstance>(null);
   const mapRef = useRef<MapView>(null);
+  const [lastManualRegionChangeTimestamp, setLastManualRegionChangeTimestamp] =
+    useState<number>(Date.now());
+  const [queryRidesRegion, setQueryRidesRegion] = useState<Region>();
+  const {
+    data: rides = [],
+    isLoading,
+    isUninitialized,
+    isError,
+    refetch,
+  } = useGetRidesQuery(queryRidesRegion!, {
+    skip: !queryRidesRegion,
+  });
+  const ongoingRides = useAppSelector(selectOngoingRides);
+  const ridesToDisplay = ongoingRides.length > 0 ? ongoingRides : rides;
 
-  const onRegionChangeComplete = (region: Region) => {
-    setRegion(region);
+  const onRegionChangeComplete = (region: Region, gesture: Details) => {
+    setQueryRidesRegion(region);
+    setLastManualRegionChangeTimestamp(Date.now());
+  };
+
+  const onUserLocationChange = (event: UserLocationChangeEvent) => {
+    if (Date.now() - lastManualRegionChangeTimestamp < 10000) {
+      return;
+    }
+    const { coordinate } = event.nativeEvent;
+    mapRef.current?.animateToRegion({
+      latitude: coordinate!.latitude,
+      longitude: coordinate!.longitude,
+      latitudeDelta: 0.0922,
+      longitudeDelta: 0.0421,
+    });
+  };
+
+  const onSnapToItem = (index: number) => {
+    setCurrentRide(rides[index]);
+    fitToRide(index);
+  };
+
+  const fitToRide = (index: number) => {
+    if (!rides) return;
+    mapRef.current?.fitToCoordinates(getCurrentSRideRoute(rides[index]), {
+      edgePadding: {
+        top: 50,
+        right: 50,
+        bottom: 50 + PAGE_WIDTH,
+        left: 50,
+      },
+      animated: true,
+    });
   };
 
   const getCurrentSRideRoute = (ride: Ride) => {
     return [ride.pickupLocation, ride.destination];
   };
 
-  const fitToRide = (index: number) => {
-    mapRef.current?.fitToCoordinates(getCurrentSRideRoute(rides[index]), {
-      edgePadding: {
-        top: 20,
-        right: 20,
-        bottom: 20 + PAGE_WIDTH * 0.6,
-        left: 20,
-      },
-      animated: true,
-    });
-  };
-
   return (
     <View style={styles.container}>
-      // Map View
       <MapView
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_GOOGLE}
         region={region}
+        customMapStyle={isDarkColorScheme ? nightMapTheme : []}
+        showsMyLocationButton={true}
         showsUserLocation={true}
         followsUserLocation={true}
+        onUserLocationChange={onUserLocationChange}
         onRegionChangeComplete={onRegionChangeComplete}>
-        {rides.map((ride, index) => (
-          <Marker
+        {ridesToDisplay.map((ride) => (
+          <MarkerRide
             key={ride.id}
-            coordinate={ride.pickupLocation}
-            title={ride.pickupTime}
-            description={ride.pickupLocation + '/n' + ride.userId}
+            ride={ride}
+            isShowingRoutes={ride.id === currentRide?.id}
           />
         ))}
-        {rides.map((ride, index) => (
-          <Marker
-            key={ride.id}
-            coordinate={ride.destination}
-            title={ride.pickupTime}
-            description={ride.destination + '/n' + ride.userId}
-            pinColor="blue"
-          />
-        ))}
-        {currentRide && (
-          <MapViewRoute
-            origin={currentRide.pickupLocation}
-            destination={currentRide.destination}
-            apiKey={'AIzaSyA4vZo6eMHhPQCyhzb3l7LiEo2mZZBK2UY'}
-            mode="DRIVE"
-            onError={(error) => console.log(error.toString())}
-          />
-        )}
       </MapView>
-      <View style={styles.itemsContainer}>
-        <Carousel
-          ref={carouselRef}
-          vertical={false}
-          width={PAGE_WIDTH}
-          height={PAGE_WIDTH * 0.6}
-          loop={false}
-          pagingEnabled={true}
-          snapEnabled={true}
-          autoPlay={false}
-          autoPlayInterval={1500}
-          onProgressChange={(_, absoluteProgress) =>
-            (progressValue.value = absoluteProgress)
-          }
-          mode="parallax"
-          modeConfig={{
-            parallaxScrollingScale: 0.9,
-            parallaxScrollingOffset: 50,
-          }}
-          data={rides}
-          renderItem={renderedItem}
-          onSnapToItem={(index) => {
-            setCurrentRide(rides[index]);
-            fitToRide(index);
-          }}
+      {errorMsg && <ErrorMessage message={errorMsg} onRetry={refetch} />}
+      {isError && (
+        <ErrorMessage
+          message="We couldn't load the rides. Please check your internet connection and try again."
+          onRetry={refetch}
         />
-        <View
-          style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            width: 100,
-            alignSelf: 'center',
-          }}>
-          {rides &&
-            rides.map((ride, index) => {
-              return (
-                <PaginationItem
-                  backgroundColor={'gray'}
-                  animValue={progressValue}
-                  index={index}
-                  key={index}
-                  isRotate={false}
-                  length={rides.length}
-                />
-              );
-            })}
-        </View>
+      )}
+      {!isLoading && !isError && !isUninitialized && rides.length === 0 && (
+        <ErrorMessage
+          message="No ride orders available near your location. Try adjusting the map or check back later."
+          onRetry={refetch}
+        />
+      )}
+      <View style={styles.itemsContainer}>
+        {isLoading ? (
+          <Skeleton />
+        ) : (
+          <RidesCarousel rides={ridesToDisplay} onSnapToItem={onSnapToItem} />
+        )}
       </View>
     </View>
   );
 }
-
-const renderedItem: CarouselRenderItem<Ride> = ({ item }) => {
-  return (
-    <Card key={item.id}>
-      <CardHeader>
-        <CardTitle>Ride Order</CardTitle>
-        <CardDescription>Card Description</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Text>{item.userId}</Text>
-        <Text>{item.pickupLocation.toString()}</Text>
-
-        <Text>{item.pickupTime}</Text>
-        <Text>{item.destination.toString()}</Text>
-      </CardContent>
-      <CardFooter>
-        <Text>Status: {item.status}</Text>
-      </CardFooter>
-    </Card>
-  );
-};
 
 const styles = StyleSheet.create({
   container: {
@@ -172,70 +134,26 @@ const styles = StyleSheet.create({
   itemsContainer: {
     backgroundColor: 'transparent',
     position: 'absolute',
-    paddingTop: 450,
+    marginTop: 350,
   },
   map: {
     width: '100%',
     height: '100%',
   },
+
+  loadingContainer: {
+    position: 'absolute',
+    top: 100,
+    left: 60,
+    right: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    padding: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });
-
-const PaginationItem: React.FC<{
-  index: number;
-  backgroundColor: string;
-  length: number;
-  animValue: Animated.SharedValue<number>;
-  isRotate?: boolean;
-}> = (props) => {
-  const { animValue, index, length, backgroundColor, isRotate } = props;
-  const width = 10;
-
-  const animStyle = useAnimatedStyle(() => {
-    let inputRange = [index - 1, index, index + 1];
-    let outputRange = [-width, 0, width];
-
-    if (index === 0 && animValue?.value > length - 1) {
-      inputRange = [length - 1, length, length + 1];
-      outputRange = [-width, 0, width];
-    }
-
-    return {
-      transform: [
-        {
-          translateX: interpolate(
-            animValue?.value,
-            inputRange,
-            outputRange,
-            Extrapolate.CLAMP
-          ),
-        },
-      ],
-    };
-  }, [animValue, index, length]);
-  return (
-    <View
-      style={{
-        backgroundColor: 'white',
-        width,
-        height: width,
-        borderRadius: 50,
-        overflow: 'hidden',
-        transform: [
-          {
-            rotateZ: isRotate ? '90deg' : '0deg',
-          },
-        ],
-      }}>
-      <Animated.View
-        style={[
-          {
-            borderRadius: 50,
-            backgroundColor,
-            flex: 1,
-          },
-          animStyle,
-        ]}
-      />
-    </View>
-  );
-};

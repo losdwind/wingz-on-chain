@@ -1,8 +1,8 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import Constants from 'expo-constants';
+import { Region } from 'react-native-maps';
+import { baseApi } from './baseApi';
 interface Ride {
   id: string;
-  userId: string;
+  PassengerId: string;
   driverId: string | null;
   pickupLocation: { latitude: number; longitude: number };
   destination: { latitude: number; longitude: number };
@@ -17,31 +17,40 @@ interface Ride {
   timestamp: string;
 }
 
-export const api = createApi({
-  reducerPath: 'api',
-  baseQuery: fetchBaseQuery({
-    baseUrl: 'http://example.com/api',
-  }),
-  tagTypes: ['Ride'],
+export const rideApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getRides: builder.query<Ride[], void>({
+    getRides: builder.query<Ride[], Region>({
       onQueryStarted: async (arg, { dispatch, queryFulfilled }) => {
-        console.log('getRides triggered');
         try {
           await queryFulfilled; // Wait for the query to fulfill
         } catch (error) {
           console.error('getRides query failed', error);
         }
       },
-      query: () => '/rides',
-      providesTags: ['Ride'],
-      transformResponse: (response: Ride[]) => {
-        return response;
+      query: (region) => ({
+        url: '/rides',
+        params: region,
+      }),
+      providesTags: (result = [], error, arg) => [
+        'Ride',
+        ...result.map(({ id }) => ({ type: 'Ride', id }) as const),
+      ],
+      transformResponse: (response: { rides: Ride[] }) => {
+        console.log('rides', response.rides);
+        return response.rides;
       },
     }),
     getRide: builder.query<Ride, string>({
       query: (id) => `/rides/${id}`,
       providesTags: (result, error, id) => [{ type: 'Ride', id }],
+    }),
+
+    getOrderHistory: builder.query<Ride[], Ride['status']>({
+      query: (status) => `/rides/orderHistory?status=${status}`,
+      providesTags: (result = [], error, arg) => [
+        'Ride',
+        ...result.map(({ id }) => ({ type: 'Ride', id }) as const),
+      ],
     }),
     acceptRide: builder.mutation<Ride, { id: string; driverId: string }>({
       query: ({ id, driverId }) => ({
@@ -53,6 +62,9 @@ export const api = createApi({
         { type: 'Ride', id },
         'Ride',
       ],
+      transformResponse: (response: { ride: Ride }) => {
+        return response.ride;
+      },
     }),
     updateRideStatus: builder.mutation<
       Ride,
@@ -63,17 +75,13 @@ export const api = createApi({
         method: 'PATCH',
         body: { status },
       }),
+      transformResponse: (response: { ride: Ride }) => {
+        return response.ride;
+      },
       invalidatesTags: (result, error, { id }) => [
         { type: 'Ride', id },
         'Ride',
       ],
-    }),
-    createRide: builder.mutation<Ride, void>({
-      query: () => ({
-        url: 'rides',
-        method: 'POST',
-      }),
-      invalidatesTags: ['Ride'],
     }),
   }),
 });
@@ -83,5 +91,5 @@ export const {
   useGetRideQuery,
   useAcceptRideMutation,
   useUpdateRideStatusMutation,
-  useCreateRideMutation,
-} = api;
+  useGetOrderHistoryQuery,
+} = rideApi;

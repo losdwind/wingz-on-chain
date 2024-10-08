@@ -1,6 +1,6 @@
 import { addListener, createListenerMiddleware } from '@reduxjs/toolkit';
 import { AppDispatch, RootState } from './store';
-import { api } from './api';
+import { rideApi } from './api/rideApi';
 
 export const listenerMiddleware = createListenerMiddleware();
 
@@ -16,9 +16,10 @@ export type AppAddListener = typeof addAppListener;
 
 export const rideAcceptListeners = (startAppListening: AppStartListening) => {
   startAppListening({
-    matcher: api.endpoints.acceptRide.matchFulfilled,
+    matcher: rideApi.endpoints.acceptRide.matchFulfilled,
     effect: async (action, listenerApi) => {
-      console.log('ride accepted');
+      const ride = action.payload;
+      console.log('ongoing ride', ride);
     },
   });
 };
