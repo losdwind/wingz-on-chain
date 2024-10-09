@@ -23,9 +23,6 @@ interface Driver {
   avatar: string;
   token: string;
 }
-
-type User = Passenger | Driver;
-
 interface Ride {
   id: string;
   passengerId: string;
@@ -38,7 +35,6 @@ interface Ride {
 }
 
 let region: Region;
-
 const genFakeLocation = (region: Region) => {
   const radius = Math.min(region.latitudeDelta, region.longitudeDelta) / 2;
   const radiusInKm = radius * 1000;
@@ -50,7 +46,7 @@ const genFakeLocation = (region: Region) => {
   });
   return { latitude, longitude };
 };
-
+let rides: Ride[] = [];
 export function makeServer({ environment = 'development' } = {}) {
   let server = createServer({
     environment,
@@ -79,28 +75,6 @@ export function makeServer({ environment = 'development' } = {}) {
         phone: () => faker.phone.number(),
         avatar: () => faker.image.avatar(),
       }),
-      ride: Factory.extend<Partial<Ride>>({
-        id: () => faker.string.uuid(),
-        passengerId: () => {
-          const passengers: Passenger[] = server.db.passengers;
-          return passengers[Math.floor(Math.random() * passengers.length)]
-            .passengerId;
-        },
-        driverId: () => null,
-        pickupLocation: () => genFakeLocation(region),
-        destination: () => genFakeLocation(region),
-        status: () =>
-          faker.helpers.arrayElement([
-            'pending',
-            'accepted',
-            'declined',
-            'started',
-            'picked-up',
-            'dropped-off',
-          ]),
-        pickupTime: () => faker.date.future().toISOString(),
-        timestamp: () => faker.date.recent().toISOString(),
-      }),
     },
 
     seeds(server) {
@@ -109,6 +83,14 @@ export function makeServer({ environment = 'development' } = {}) {
     },
 
     routes() {
+      // this.pretender.handledRequest = (verb, path, request) => {
+      //   console.log(`[${verb.toUpperCase()}] ${path}`);
+      //   console.log('Request headers:', request.requestHeaders);
+      //   console.log('Request body:', request.requestBody);
+      //   console.log('Response:', request.responseText);
+      //   console.log('---');
+      // };
+
       this.urlPrefix = 'http://example.com';
       this.namespace = 'api';
 
@@ -122,8 +104,24 @@ export function makeServer({ environment = 'development' } = {}) {
 
       this.get('/passengers/:id', (schema, request) => {
         const { id } = request.params;
-        const passenger = schema.find('passenger', id);
-        return passenger || new Response(404);
+        console.log('Searching for passenger with id:', id);
+        console.log('passengers', schema.db.passengers);
+        console.log('drivers', schema.db.drivers);
+        console.log('rides', rides);
+        try {
+          const passenger = schema.db.passengers.findBy({ passengerId: id });
+          console.log('Found passenger:', passenger);
+
+          if (passenger) {
+            return passenger;
+          } else {
+            console.log('Passenger not found');
+            return new Response(404, {}, { error: 'Passenger not found' });
+          }
+        } catch (error) {
+          console.error('Error in passenger lookup:', error);
+          return new Response(500, {}, { error: 'Internal server error' });
+        }
       });
 
       this.get('/drivers/:id', (schema, request) => {
@@ -136,12 +134,10 @@ export function makeServer({ environment = 'development' } = {}) {
         const { passengerId, driverId } = JSON.parse(request.requestBody);
         console.log('driverId', driverId);
 
-        const driver = schema.findBy('driver', { driverId: driverId })?.attrs;
-        const passenger = schema.findBy('passenger', {
+        const driver = schema.db.drivers.findBy({ driverId: driverId });
+        const passenger = schema.db.passengers.findBy({
           passengerId: passengerId,
-        })?.attrs;
-
-        console.log('drivers', schema.all('driver'));
+        });
 
         if (driver) {
           console.log('driver', driver);
@@ -153,7 +149,7 @@ export function makeServer({ environment = 'development' } = {}) {
         if (passenger) {
           console.log('passenger', passenger);
           return {
-            Passenger: passenger,
+            passenger: passenger,
             token: faker.string.uuid(),
           };
         }
@@ -167,11 +163,6 @@ export function makeServer({ environment = 'development' } = {}) {
       this.get('/rides', (schema, request) => {
         const { latitude, longitude, latitudeDelta, longitudeDelta } =
           request.queryParams;
-
-        const bearToken = request.requestHeaders.Authorization;
-        const token = bearToken?.split(' ')[1];
-        const driver = schema.findBy('driver', { token: token });
-
         if (!latitude || !longitude || !latitudeDelta || !longitudeDelta) {
           return new Response(
             400,
@@ -190,10 +181,30 @@ export function makeServer({ environment = 'development' } = {}) {
           longitudeDelta: parseFloat(longitudeDelta as string),
         };
 
-        if (schema.all('ride').length === 0) {
-          server.createList('ride', 50);
+        if (rides.length === 0) {
+          rides = Array.from({ length: 50 }, () => ({
+            id: faker.string.uuid(),
+            passengerId: (() => {
+              const passengers: Passenger[] = server.db.passengers;
+              return passengers[Math.floor(Math.random() * passengers.length)]
+                .passengerId;
+            })(),
+            driverId: null,
+            pickupLocation: genFakeLocation(region),
+            destination: genFakeLocation(region),
+            status: faker.helpers.arrayElement([
+              'pending',
+              'accepted',
+              'declined',
+              'started',
+              'picked-up',
+              'dropped-off',
+            ]),
+            pickupTime: faker.date.future().toISOString(),
+            timestamp: faker.date.recent().toISOString(),
+          }));
         }
-        return schema.where('ride', { status: 'pending' });
+        return { rides: rides.filter((ride) => ride.status === 'pending') };
       });
 
       this.get('/rides/orderHistory', (schema, request) => {
@@ -208,17 +219,17 @@ export function makeServer({ environment = 'development' } = {}) {
 
       this.get('/rides/:id', (schema, request) => {
         const { id } = request.params;
-        const ride = schema.find('ride', id);
+        const ride = rides.find((ride) => ride.id === id);
         return ride || new Response(404);
       });
 
       this.post('/rides/:id/accept', (schema, request) => {
         const { id } = request.params;
         const { driverId } = JSON.parse(request.requestBody);
-        const ride = schema.find('ride', id);
+        const ride = rides.find((ride) => ride.id === id);
 
         if (ride && ride.status === 'pending') {
-          return ride.update({ driverId, status: 'accepted' });
+          return { ...ride, driverId, status: 'accepted' };
         }
         return new Response(400);
       });
@@ -226,9 +237,9 @@ export function makeServer({ environment = 'development' } = {}) {
       this.patch('/rides/:id/status', (schema, request) => {
         const { id } = request.params;
         const { status } = JSON.parse(request.requestBody);
-        const ride = schema.find('ride', id);
+        const ride = rides.find((ride) => ride.id === id);
         if (ride) {
-          return ride.update({ status });
+          return { ...ride, status };
         }
         return new Response(404);
       });
@@ -236,7 +247,7 @@ export function makeServer({ environment = 'development' } = {}) {
       this.post('/rides', (schema, request) => {
         const attrs = JSON.parse(request.requestBody);
         attrs.status = 'pending';
-        return schema.create('ride', attrs);
+        return { ...attrs, id: faker.string.uuid() };
       });
 
       this.passthrough('https://routes.googleapis.com/**');

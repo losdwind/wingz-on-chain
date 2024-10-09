@@ -1,21 +1,6 @@
 import { Region } from 'react-native-maps';
 import { baseApi } from './baseApi';
-interface Ride {
-  id: string;
-  PassengerId: string;
-  driverId: string | null;
-  pickupLocation: { latitude: number; longitude: number };
-  destination: { latitude: number; longitude: number };
-  status:
-    | 'pending'
-    | 'accepted'
-    | 'declined'
-    | 'started'
-    | 'picked-up'
-    | 'dropped-off';
-  pickupTime: string;
-  timestamp: string;
-}
+import { Ride } from '~/lib/types';
 
 export const rideApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -36,7 +21,6 @@ export const rideApi = baseApi.injectEndpoints({
         ...result.map(({ id }) => ({ type: 'Ride', id }) as const),
       ],
       transformResponse: (response: { rides: Ride[] }) => {
-        console.log('rides', response.rides);
         return response.rides;
       },
     }),

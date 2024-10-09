@@ -14,15 +14,27 @@ export const userApi = baseApi.injectEndpoints({
       query: () => '/drivers',
       providesTags: ['Drivers'],
       transformResponse: (response: { drivers: Driver[] }) => {
-        console.log('response: drivers :', response.drivers);
         return response.drivers;
       },
     }),
     getPassenger: builder.query<Passenger, string>({
       query: (id) => `/passengers/${id}`,
+      transformResponse: (response: Passenger) => {
+        console.log('response: passenger :', response);
+        return response;
+      },
+      transformErrorResponse: (response: {
+        status: number;
+        data: { error: string };
+      }) => {
+        return { status: response.status, message: response.data.error };
+      },
     }),
     getDriver: builder.query<Driver, string>({
       query: (id) => `/drivers/${id}`,
+      transformResponse: (response: Driver) => {
+        return response;
+      },
     }),
     login: builder.mutation<
       | { passenger: Passenger; token: string }

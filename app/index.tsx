@@ -40,7 +40,9 @@ export default function HomeScreen() {
     skip: !queryRidesRegion,
   });
   const ongoingRides = useAppSelector(selectOngoingRides);
-  const ridesToDisplay = ongoingRides.length > 0 ? ongoingRides : rides;
+  const ridesToDisplay = (
+    ongoingRides.length > 0 ? ongoingRides : rides
+  ) as Ride[];
 
   const onRegionChangeComplete = (region: Region, gesture: Details) => {
     setQueryRidesRegion(region);

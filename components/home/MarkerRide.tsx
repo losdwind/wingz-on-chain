@@ -16,13 +16,13 @@ export function MarkerRide({
         key={ride.id + 'pickup'}
         coordinate={ride.pickupLocation}
         title={`${ride.pickupLocation.latitude} ${ride.pickupLocation.longitude}`}
-        description={`${ride.pickupLocation}\n${ride.PassengerId}`}
+        description={`${ride.pickupLocation}\n${ride.passengerId}`}
       />
       <Marker
         key={ride.id + 'destination'}
         coordinate={ride.destination}
         title={`${ride.destination.latitude} ${ride.destination.longitude}`}
-        description={`${ride.destination}\n${ride.PassengerId}`}
+        description={`${ride.destination}\n${ride.passengerId}`}
         pinColor="blue"
       />
 

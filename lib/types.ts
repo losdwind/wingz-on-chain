@@ -1,6 +1,6 @@
 export interface Ride {
   id: string;
-  PassengerId: string;
+  passengerId: string;
   driverId: string | null;
   pickupLocation: { latitude: number; longitude: number };
   destination: { latitude: number; longitude: number };
@@ -17,7 +17,7 @@ export interface Ride {
 
 export interface Passenger {
   id: string;
-  PassengerId: string;
+  passengerId: string;
   name: string;
   email: string;
   phone: string;

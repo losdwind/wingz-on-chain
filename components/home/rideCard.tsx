@@ -1,14 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import {
   MapPin,
   Clock,
-  Calendar,
-  Timer,
   User,
   Phone,
   Users,
-  ChevronDown,
-  ChevronUp,
   CheckCircle,
   Loader2,
 } from '~/lib/icons';
@@ -21,16 +17,11 @@ import {
   CardFooter,
 } from '~/components/ui/card';
 import { Badge } from '~/components/ui/badge';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '~/components/ui/collapsible';
 import { Button } from '~/components/ui/button';
 import { Ride } from '~/lib/types';
 import useCoordinateToAddress from '~/hooks/useCoordinateToAddress';
 import { format } from 'date-fns';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { Text } from '~/components/ui/text';
 import {
   useAcceptRideMutation,
@@ -45,10 +36,12 @@ export default function RideCard({ item }: { item: Ride }) {
   const currentDriver = useAppSelector(selectCurrentDriver);
   const [acceptRide] = useAcceptRideMutation();
   const [updateRideStatus] = useUpdateRideStatusMutation();
-  const { data: passenger } = useGetPassengerQuery(item.PassengerId);
   const pickUpAddress = useCoordinateToAddress(item.pickupLocation);
   const destinationAddress = useCoordinateToAddress(item.destination);
-  const [isOpen, setIsOpen] = useState(false);
+  const { data: passenger, refetch: refetchPassenger } = useGetPassengerQuery(
+    item.passengerId
+  );
+
   const [buttonState, setButtonState] = useState<
     'idle' | 'loading' | 'success' | 'error'
   >('idle');
@@ -147,6 +140,12 @@ export default function RideCard({ item }: { item: Ride }) {
     );
   };
 
+  const handleCall = () => {
+    if (passenger?.phone) {
+      Linking.openURL(`tel:${passenger.phone}`);
+    }
+  };
+
   return (
     <Card className="w-full max-w-md mx-auto overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -159,107 +158,94 @@ export default function RideCard({ item }: { item: Ride }) {
       </CardHeader>
       <CardContent>
         <View className="gap-4">
-          <View className="flex-row items-center space-x-2 gap-2">
-            <User className="h-5 w-5 text-gray-500" />
-            <Text className="font-medium">{passenger?.name}</Text>
-          </View>
-          <View className="gap-2">
-            <View className="flex-row items-center gap-2">
-              <MapPin className="h-5 w-5 text-green-500" />
-              <Text className="font-medium">Pickup:</Text>
-            </View>
-            <Text className="ml-7" numberOfLines={2}>
+          <View className="flex-row items-start gap-2">
+            <MapPin className="h-5 w-5 text-green-500" />
+            <Text className="font-medium">Pickup:</Text>
+            <Text className="flex-shrink" numberOfLines={2}>
               {pickUpAddress?.formattedAddress}
             </Text>
           </View>
-          <View className="gap-2">
-            <View className="flex-row items-center gap-2">
-              <MapPin className="h-5 w-5 text-red-500" />
-              <Text className="font-medium">Drop-off:</Text>
-            </View>
-            <Text className="ml-7" numberOfLines={2}>
+          <View className="flex-row items-start gap-2">
+            <MapPin className="h-5 w-5 text-red-500" />
+            <Text className="font-medium">Drop-off:</Text>
+            <Text className="flex-shrink" numberOfLines={2}>
               {destinationAddress?.formattedAddress}
             </Text>
           </View>
-        </View>
-        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-          <CollapsibleTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              onPress={() => setIsOpen(!isOpen)}>
-              {isOpen ? (
-                <View className="flex-row items-center space-x-2 gap-2">
-                  <ChevronDown className="h-4 w-4 mr-2 text-gray-500" />
-                  <Text>Show Less</Text>
-                </View>
-              ) : (
-                <View className="flex-row items-center space-x-2 gap-2">
-                  <ChevronUp className="h-4 w-4 mr-2 text-gray-500" />
-                  <Text>Show More</Text>
-                </View>
-              )}
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <View className="gap-4">
+          <View className="flex-row items-center space-x-2 gap-2">
+            <Clock className="h-4 w-4 text-blue-500" />
+            <Text className="font-medium">Pickup Time:</Text>
+            <Text>
+              {format(new Date(item.pickupTime), 'MMM d, yyyy HH:mm')}
+            </Text>
+          </View>
+          {passenger ? (
+            <View className="flex-row justify-between items-center">
               <View className="flex-row items-center space-x-2 gap-2">
-                <Phone className="h-4 w-4 text-gray-500" />
-                <Text className="font-medium">Contact:</Text>
-                <Text>{passenger?.phone}</Text>
+                <User className="h-5 w-5 text-gray-500" />
+                <Text className="font-medium">
+                  {passenger?.name.charAt(0).toUpperCase() +
+                    passenger?.name.slice(1)}
+                </Text>
               </View>
               <View className="flex-row items-center space-x-2 gap-2">
                 <Users className="h-4 w-4 text-gray-500" />
                 <Text className="font-medium">Passengers:</Text>
                 <Text>{passenger?.numOfPassengers}</Text>
               </View>
-              <View className="flex-row items-center space-x-2 gap-2">
-                <Clock className="h-4 w-4 text-blue-500" />
-                <Text className="font-medium">Pickup Time:</Text>
-                <Text>
-                  {format(new Date(item.pickupTime), 'MMM d, yyyy HH:mm')}
-                </Text>
-              </View>
-              <View className="flex-row items-center space-x-2 gap-2">
-                <Calendar className="h-4 w-4 text-purple-500" />
-                <Text className="font-medium">Order Time:</Text>
-                <Text>
-                  {format(new Date(item.timestamp), 'MMM d, yyyy HH:mm')}
-                </Text>
-              </View>
-              <View className="flex-row items-center space-x-2 gap-2">
-                <Timer className="h-4 w-4 text-orange-500" />
-                <Text className="font-medium">Expected Duration:</Text>
-                <Text>35 mins</Text>
-              </View>
             </View>
-          </CollapsibleContent>
-        </Collapsible>
+          ) : (
+            <Button variant="ghost" onPress={() => refetchPassenger()}></Button>
+          )}
+
+          {/* <View className="flex-row items-center space-x-2 gap-2">
+            <Calendar className="h-4 w-4 text-purple-500" />
+            <Text className="font-medium">Order Time:</Text>
+            <Text>{format(new Date(item.timestamp), 'MMM d, yyyy HH:mm')}</Text>
+          </View>
+          <View className="flex-row items-center space-x-2 gap-2">
+            <Timer className="h-4 w-4 text-orange-500" />
+            <Text className="font-medium">Expected Duration:</Text>
+            <Text>35 mins</Text>
+          </View> */}
+        </View>
       </CardContent>
       <CardFooter>
-        <Button
-          onPress={handleRideAction}
-          disabled={isButtonDisabled()}
-          className="w-full">
-          {buttonState === 'idle' && <Text>{getButtonText()}</Text>}
-          {buttonState === 'loading' && (
-            <View className="flex-row">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin text-green-500" />
+        <View className="w-full flex-row items-center gap-4">
+          <Button
+            variant="secondary"
+            onPress={handleCall}
+            disabled={!passenger?.phone}
+            className="flex-none">
+            <View className="flex-row gap-4">
+              <Phone className="h-4 w-4 text-gray-500" />
+              <Text>Call</Text>
             </View>
-          )}
-          {buttonState === 'success' && (
-            <View className="flex-row">
-              <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
-              <Text>Success</Text>
-            </View>
-          )}
-          {buttonState === 'error' && (
-            <View className="flex-row">
-              <XCircle className="mr-2 h-4 w-4 text-red-500" />
-              <Text>{error}</Text>
-            </View>
-          )}
-        </Button>
+          </Button>
+          <Button
+            onPress={handleRideAction}
+            disabled={isButtonDisabled()}
+            className="flex-1">
+            {buttonState === 'idle' && <Text>{getButtonText()}</Text>}
+            {buttonState === 'loading' && (
+              <View className="flex-row">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin text-green-500" />
+              </View>
+            )}
+            {buttonState === 'success' && (
+              <View className="flex-row">
+                <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
+                <Text>Success</Text>
+              </View>
+            )}
+            {buttonState === 'error' && (
+              <View className="flex-row">
+                <XCircle className="mr-2 h-4 w-4 text-gray-500" />
+                <Text>{error}</Text>
+              </View>
+            )}
+          </Button>
+        </View>
       </CardFooter>
     </Card>
   );
