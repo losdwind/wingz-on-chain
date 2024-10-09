@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar';
 import { Button } from '~/components/ui/button';
@@ -26,7 +26,7 @@ export default function DriverSwitch() {
   const { data: drivers } = useGetDriversQuery();
   const [login] = useLoginMutation();
   const [logout] = useLogoutMutation();
-  const [isOpen, setIsOpen] = useState(false);
+  const [, setIsOpen] = useState(false);
 
   const handleDriverSwitch = async (driver: Driver) => {
     try {

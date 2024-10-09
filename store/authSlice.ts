@@ -1,4 +1,4 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 import { userApi } from './api/userApi';
 import { Driver, Passenger } from '~/lib/types';
 import { RootState } from './store';
@@ -29,6 +29,10 @@ export const authSlice = createSlice({
           state.token = payload.token;
         }
       }
+    );
+    builder.addMatcher(
+      userApi.endpoints.logout.matchFulfilled,
+      () => initialState
     );
   },
 });
