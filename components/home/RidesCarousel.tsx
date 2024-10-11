@@ -4,9 +4,9 @@ import Carousel, {
   CarouselRenderItem,
   ICarouselInstance,
 } from 'react-native-reanimated-carousel';
-import { useSharedValue, withTiming } from 'react-native-reanimated';
-import { Dimensions, View } from 'react-native';
-import { useEffect, useRef } from 'react';
+import { useSharedValue } from 'react-native-reanimated';
+import { Dimensions } from 'react-native';
+import { useRef } from 'react';
 
 const PAGE_WIDTH = Dimensions.get('window').width;
 

@@ -15,6 +15,7 @@ import { Provider } from 'react-redux';
 import { store } from '~/store/store';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import UserSwitch from '~/components/auth/userSwitch';
+import Toast from 'react-native-toast-message';
 
 const LIGHT_THEME: Theme = {
   dark: false,
@@ -61,7 +62,7 @@ export default function RootLayout() {
     })().finally(() => {
       SplashScreen.hideAsync();
     });
-  }, []);
+  }, [colorScheme, setColorScheme]);
 
   if (!isColorSchemeLoaded) {
     return null;
@@ -89,6 +90,7 @@ export default function RootLayout() {
             />
           </Stack>
           <PortalHost />
+          <Toast />
         </ThemeProvider>
       </GestureHandlerRootView>
     </Provider>

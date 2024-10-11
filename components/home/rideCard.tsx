@@ -1,13 +1,5 @@
 import { useState } from 'react';
-import {
-  MapPin,
-  Clock,
-  User,
-  Phone,
-  Users,
-  CheckCircle,
-  Loader2,
-} from '~/lib/icons';
+import { MapPin, Clock, User, Phone, Users, CheckCircle } from '~/lib/icons';
 
 import {
   Card,
@@ -21,27 +13,22 @@ import { Button } from '~/components/ui/button';
 import { Ride } from '~/lib/types';
 import useCoordinateToAddress from '~/hooks/useCoordinateToAddress';
 import { format } from 'date-fns';
-import { Linking, View } from 'react-native';
+import { ActivityIndicator, Linking, View } from 'react-native';
 import { Text } from '~/components/ui/text';
-import {
-  useAcceptRideMutation,
-  useUpdateRideStatusMutation,
-} from '~/store/api/rideApi';
 import { useGetPassengerQuery } from '~/store/api/userApi';
 import { XCircle } from '~/lib/icons/XCircle';
-import { useAppSelector } from '~/store/hooks';
+import { useAppDispatch, useAppSelector } from '~/store/hooks';
 import { selectCurrentDriver } from '~/store/authSlice';
+import { performRideAction } from '~/store/rideSlice';
 
 export default function RideCard({ item }: { item: Ride }) {
+  const dispatch = useAppDispatch();
   const currentDriver = useAppSelector(selectCurrentDriver);
-  const [acceptRide] = useAcceptRideMutation();
-  const [updateRideStatus] = useUpdateRideStatusMutation();
   const pickUpAddress = useCoordinateToAddress(item.pickupLocation);
   const destinationAddress = useCoordinateToAddress(item.destination);
   const { data: passenger, refetch: refetchPassenger } = useGetPassengerQuery(
     item.passengerId
   );
-
   const [buttonState, setButtonState] = useState<
     'idle' | 'loading' | 'success' | 'error'
   >('idle');
@@ -68,53 +55,27 @@ export default function RideCard({ item }: { item: Ride }) {
 
   const handleRideAction = async () => {
     try {
-      if (!currentDriver) {
-        throw new Error('You are not logged in');
-      }
       setButtonState('loading');
-      let newStatus: Ride['status'];
-      switch (item.status) {
-        case 'pending':
-          newStatus = 'accepted';
-          break;
-        case 'accepted':
-          newStatus = 'started';
-          break;
-        case 'started':
-          newStatus = 'picked-up';
-          break;
-        case 'picked-up':
-          newStatus = 'dropped-off';
-          break;
-        default:
-          throw new Error('Invalid ride status for action');
-      }
-
-      if (newStatus === 'accepted') {
-        await acceptRide({
-          id: item.id,
-          driverId: currentDriver.driverId,
-        }).unwrap();
-      } else {
-        await updateRideStatus({ id: item.id, status: newStatus }).unwrap();
-      }
-
+      setError(null);
+      await dispatch(
+        performRideAction({
+          rideId: item.id,
+          currentStatus: item.status,
+          driverId: currentDriver?.driverId || '',
+        })
+      ).unwrap();
       setButtonState('success');
-    } catch (error) {
-      setButtonState('error');
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError('An unexpected error occurred');
-      }
-    } finally {
       setTimeout(() => {
         setButtonState('idle');
-        setError(null);
+      }, 1000);
+    } catch (error) {
+      setButtonState('error');
+      setError((error as Error).message);
+      setTimeout(() => {
+        setButtonState('idle');
       }, 2000);
     }
   };
-
   const getButtonText = () => {
     switch (item.status) {
       case 'pending':
@@ -129,6 +90,18 @@ export default function RideCard({ item }: { item: Ride }) {
         return 'Ride Completed';
       default:
         return 'N/A';
+    }
+  };
+  const getButtonBackgroundColor = () => {
+    switch (buttonState) {
+      case 'idle':
+        return '';
+      case 'loading':
+        return '';
+      case 'error':
+        return 'bg-red-500';
+      case 'success':
+        return 'bg-green-500';
     }
   };
 
@@ -225,23 +198,27 @@ export default function RideCard({ item }: { item: Ride }) {
           <Button
             onPress={handleRideAction}
             disabled={isButtonDisabled()}
-            className="flex-1">
-            {buttonState === 'idle' && <Text>{getButtonText()}</Text>}
+            className={`flex-1 h-12 justify-center items-center text-white ${getButtonBackgroundColor()} disabled:opacity-50`}>
+            {buttonState === 'idle' && (
+              <Text className="font-semibold text-white">
+                {error ? 'Retry' : getButtonText()}
+              </Text>
+            )}
             {buttonState === 'loading' && (
-              <View className="flex-row">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin text-green-500" />
-              </View>
+              <ActivityIndicator size="small" color="white" />
             )}
             {buttonState === 'success' && (
-              <View className="flex-row">
-                <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
-                <Text>Success</Text>
+              <View className="flex-row items-center">
+                <CheckCircle className="mr-2 h-5 w-5 text-white" />
+                <Text className="font-semibold text-white">Success</Text>
               </View>
             )}
             {buttonState === 'error' && (
-              <View className="flex-row">
-                <XCircle className="mr-2 h-4 w-4 text-gray-500" />
-                <Text>{error}</Text>
+              <View className="flex-row items-center">
+                <XCircle className="mr-2 h-5 w-5 text-white" />
+                <Text className="font-semibold text-white">
+                  {error || 'Error'}
+                </Text>
               </View>
             )}
           </Button>

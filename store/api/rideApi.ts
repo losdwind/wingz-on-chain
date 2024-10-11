@@ -46,9 +46,6 @@ export const rideApi = baseApi.injectEndpoints({
         { type: 'Ride', id },
         'Ride',
       ],
-      transformResponse: (response: { ride: Ride }) => {
-        return response.ride;
-      },
     }),
     updateRideStatus: builder.mutation<
       Ride,
@@ -59,9 +56,6 @@ export const rideApi = baseApi.injectEndpoints({
         method: 'PATCH',
         body: { status },
       }),
-      transformResponse: (response: { ride: Ride }) => {
-        return response.ride;
-      },
       invalidatesTags: (result, error, { id }) => [
         { type: 'Ride', id },
         'Ride',

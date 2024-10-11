@@ -25,6 +25,7 @@ export const authSlice = createSlice({
           state.passenger = payload.passenger;
           state.token = payload.token;
         } else if ('driver' in payload) {
+          console.log('driver logged in ', payload.token);
           state.driver = payload.driver;
           state.token = payload.token;
         }

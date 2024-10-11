@@ -18,7 +18,7 @@ export const store = configureStore({
       .concat(api.middleware),
   devTools: false,
   enhancers: (getDefaultEnhancers) =>
-    getDefaultEnhancers().concat(devToolsEnhancer()),
+    getDefaultEnhancers().concat(devToolsEnhancer() as any),
 });
 
 // Infer the type of `store`

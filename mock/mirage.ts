@@ -83,13 +83,13 @@ export function makeServer({ environment = 'development' } = {}) {
     },
 
     routes() {
-      // this.pretender.handledRequest = (verb, path, request) => {
-      //   console.log(`[${verb.toUpperCase()}] ${path}`);
-      //   console.log('Request headers:', request.requestHeaders);
-      //   console.log('Request body:', request.requestBody);
-      //   console.log('Response:', request.responseText);
-      //   console.log('---');
-      // };
+      this.pretender.handledRequest = (verb, path, request) => {
+        console.log(`[${verb.toUpperCase()}] ${path}`);
+        console.log('Request headers:', request.requestHeaders);
+        console.log('Request body:', request.requestBody);
+        console.log('Response:', request.responseText);
+        console.log('---');
+      };
 
       this.urlPrefix = 'http://example.com';
       this.namespace = 'api';
@@ -208,8 +208,10 @@ export function makeServer({ environment = 'development' } = {}) {
       });
 
       this.get('/rides/orderHistory', (schema, request) => {
-        const bearToken = request.requestHeaders.Authorization;
-        const token = bearToken?.split(' ')[1];
+        const bearerToken =
+          request.requestHeaders.authorization ||
+          request.requestHeaders.Authorization;
+        const token = bearerToken?.split(' ')[1];
         const driver = schema.findBy('driver', { token: token });
         if (!driver) {
           return new Response(401);
@@ -224,6 +226,13 @@ export function makeServer({ environment = 'development' } = {}) {
       });
 
       this.post('/rides/:id/accept', (schema, request) => {
+        console.log('request headers', request.requestHeaders);
+        const bearerToken =
+          request.requestHeaders.authorization ||
+          request.requestHeaders.Authorization;
+        if (!bearerToken) {
+          return new Response(401, {}, { error: 'No token provided' });
+        }
         const { id } = request.params;
         const { driverId } = JSON.parse(request.requestBody);
         const ride = rides.find((ride) => ride.id === id);
@@ -235,6 +244,12 @@ export function makeServer({ environment = 'development' } = {}) {
       });
 
       this.patch('/rides/:id/status', (schema, request) => {
+        const bearerToken =
+          request.requestHeaders.authorization ||
+          request.requestHeaders.Authorization;
+        if (!bearerToken) {
+          return new Response(401, {}, { error: 'No token provided' });
+        }
         const { id } = request.params;
         const { status } = JSON.parse(request.requestBody);
         const ride = rides.find((ride) => ride.id === id);
@@ -245,6 +260,12 @@ export function makeServer({ environment = 'development' } = {}) {
       });
 
       this.post('/rides', (schema, request) => {
+        const bearerToken =
+          request.requestHeaders.authorization ||
+          request.requestHeaders.Authorization;
+        if (!bearerToken) {
+          return new Response(401, {}, { error: 'No token provided' });
+        }
         const attrs = JSON.parse(request.requestBody);
         attrs.status = 'pending';
         return { ...attrs, id: faker.string.uuid() };
