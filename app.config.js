@@ -7,6 +7,12 @@ module.exports = {
     icon: './assets/images/icon.png',
     scheme: 'wingz',
     userInterfaceStyle: 'automatic',
+    extra: {
+      eas: {
+        projectId: '349ab778-4cba-41a2-ae8d-d2d301e51d87',
+      },
+    },
+    owner: 's524256521',
     splash: {
       image: './assets/images/splash.png',
       resizeMode: 'contain',
