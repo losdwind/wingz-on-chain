@@ -104,18 +104,12 @@ export function makeServer({ environment = 'development' } = {}) {
 
       this.get('/passengers/:id', (schema, request) => {
         const { id } = request.params;
-        console.log('Searching for passenger with id:', id);
-        console.log('passengers', schema.db.passengers);
-        console.log('drivers', schema.db.drivers);
-        console.log('rides', rides);
         try {
           const passenger = schema.db.passengers.findBy({ passengerId: id });
-          console.log('Found passenger:', passenger);
 
           if (passenger) {
             return passenger;
           } else {
-            console.log('Passenger not found');
             return new Response(404, {}, { error: 'Passenger not found' });
           }
         } catch (error) {
@@ -132,7 +126,6 @@ export function makeServer({ environment = 'development' } = {}) {
 
       this.post('/login', (schema, request) => {
         const { passengerId, driverId } = JSON.parse(request.requestBody);
-        console.log('driverId', driverId);
 
         const driver = schema.db.drivers.findBy({ driverId: driverId });
         const passenger = schema.db.passengers.findBy({
@@ -140,14 +133,12 @@ export function makeServer({ environment = 'development' } = {}) {
         });
 
         if (driver) {
-          console.log('driver', driver);
           return {
             driver: driver,
             token: faker.string.uuid(),
           };
         }
         if (passenger) {
-          console.log('passenger', passenger);
           return {
             passenger: passenger,
             token: faker.string.uuid(),
@@ -180,9 +171,11 @@ export function makeServer({ environment = 'development' } = {}) {
           latitudeDelta: parseFloat(latitudeDelta as string),
           longitudeDelta: parseFloat(longitudeDelta as string),
         };
-
-        if (rides.length === 0) {
-          rides = Array.from({ length: 50 }, () => ({
+        const filterFn = (ride: Ride) => {
+          return ride.status === 'pending';
+        };
+        if (rides.filter(filterFn).length === 0) {
+          rides = Array.from({ length: 10 }, () => ({
             id: faker.string.uuid(),
             passengerId: (() => {
               const passengers: Passenger[] = server.db.passengers;
@@ -192,19 +185,14 @@ export function makeServer({ environment = 'development' } = {}) {
             driverId: null,
             pickupLocation: genFakeLocation(region),
             destination: genFakeLocation(region),
-            status: faker.helpers.arrayElement([
-              'pending',
-              'accepted',
-              'declined',
-              'started',
-              'picked-up',
-              'dropped-off',
-            ]),
+            status: faker.helpers.arrayElement(['pending']),
             pickupTime: faker.date.future().toISOString(),
             timestamp: faker.date.recent().toISOString(),
           }));
         }
-        return { rides: rides.filter((ride) => ride.status === 'pending') };
+        return {
+          rides: rides,
+        };
       });
 
       this.get('/rides/orderHistory', (schema, request) => {
@@ -226,7 +214,6 @@ export function makeServer({ environment = 'development' } = {}) {
       });
 
       this.post('/rides/:id/accept', (schema, request) => {
-        console.log('request headers', request.requestHeaders);
         const bearerToken =
           request.requestHeaders.authorization ||
           request.requestHeaders.Authorization;
@@ -235,10 +222,33 @@ export function makeServer({ environment = 'development' } = {}) {
         }
         const { id } = request.params;
         const { driverId } = JSON.parse(request.requestBody);
-        const ride = rides.find((ride) => ride.id === id);
+        const rideIndex = rides.findIndex((ride) => ride.id === id);
+        const ride = rides[rideIndex];
 
         if (ride && ride.status === 'pending') {
-          return { ...ride, driverId, status: 'accepted' };
+          ride.driverId = driverId;
+          ride.status = 'accepted';
+          rides[rideIndex] = ride;
+          return ride;
+        }
+        return new Response(400);
+      });
+      this.post('/rides/:id/decline', (schema, request) => {
+        const bearerToken =
+          request.requestHeaders.authorization ||
+          request.requestHeaders.Authorization;
+        if (!bearerToken) {
+          return new Response(401, {}, { error: 'No token provided' });
+        }
+        const { id } = request.params;
+        const { driverId } = JSON.parse(request.requestBody);
+        const rideIndex = rides.findIndex((ride) => ride.id === id);
+        const ride = rides[rideIndex];
+        if (ride && ride.status === 'pending') {
+          ride.status = 'declined';
+          ride.driverId = driverId;
+          rides[rideIndex] = ride;
+          return ride;
         }
         return new Response(400);
       });
@@ -254,7 +264,8 @@ export function makeServer({ environment = 'development' } = {}) {
         const { status } = JSON.parse(request.requestBody);
         const ride = rides.find((ride) => ride.id === id);
         if (ride) {
-          return { ...ride, status };
+          ride.status = status;
+          return ride;
         }
         return new Response(404);
       });
@@ -268,7 +279,9 @@ export function makeServer({ environment = 'development' } = {}) {
         }
         const attrs = JSON.parse(request.requestBody);
         attrs.status = 'pending';
-        return { ...attrs, id: faker.string.uuid() };
+        let ride = { ...attrs, id: faker.string.uuid() };
+        rides.push(ride);
+        return ride;
       });
 
       this.passthrough('https://routes.googleapis.com/**');
