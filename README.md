@@ -27,7 +27,7 @@ https://github.com/user-attachments/assets/ee4b2400-df0d-4c8e-87c6-d7f2ef63333d
    ```
    yarn install
    ```
-3. configure .env with your API keys: Please restrict access to your map api keys on Google Cloud Platform because the api key is public by design.
+3. configure .env with your API keys: rename .env.example to .env and fill in the values. Please restrict access to your map api keys on Google Cloud Platform because the api key is public by design.
 4. Run the project:
 
    - For Android:
