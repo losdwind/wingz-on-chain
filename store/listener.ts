@@ -18,8 +18,7 @@ export const rideAcceptListeners = (startAppListening: AppStartListening) => {
   startAppListening({
     matcher: rideApi.endpoints.acceptRide.matchFulfilled,
     effect: async (action, listenerApi) => {
-      const ride = action.payload;
-      console.log('ongoing ride', ride);
+      console.log('ride accepted', action);
     },
   });
 };

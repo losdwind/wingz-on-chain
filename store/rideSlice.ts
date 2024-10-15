@@ -89,7 +89,6 @@ export const rideSlice = createSlice({
         });
       }
     );
-
     builder.addMatcher(
       rideApi.endpoints.updateRideStatus.matchFulfilled,
       (state, action) => {
@@ -112,5 +111,4 @@ export const { addOngoingRide, updateOngoingRide, removeOngoingRide } =
   rideSlice.actions;
 
 export const selectOngoingRides = (state: RootState) => state.ride.ongoingRides;
-
 export default rideSlice.reducer;

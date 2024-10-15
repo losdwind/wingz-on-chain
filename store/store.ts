@@ -1,4 +1,3 @@
-import { listenerMiddleware } from './listener';
 import mapReducer from './mapSlice';
 import authReducer from './authSlice';
 import rideReducer from './rideSlice';
@@ -14,7 +13,7 @@ export const store = configureStore({
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware()
-      .prepend(listenerMiddleware.middleware)
+      // .prepend(listenerMiddleware.middleware)
       .concat(api.middleware),
   devTools: false,
   enhancers: (getDefaultEnhancers) =>
