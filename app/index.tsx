@@ -15,12 +15,13 @@ import { useColorScheme } from '~/lib/useColorScheme';
 import { nightMapTheme } from '~/lib/nightMapTheme';
 import { useAppSelector } from '~/store/hooks';
 import { selectOngoingRides } from '~/store/rideSlice';
-import MarkerRide from '~/components/home/MarkerRide';
+import { MarkerRide } from '~/components/home/MarkerRide';
 import { RidesCarousel } from '~/components/home/RidesCarousel';
 import { Skeleton } from '~/components/ui/skeleton';
 import { ErrorMessage } from '~/components/home/ErrorMessage';
 
 const PAGE_WIDTH = Dimensions.get('screen').width;
+const emptyArray: Ride[] = [];
 
 export default function HomeScreen() {
   const { isDarkColorScheme } = useColorScheme();
@@ -31,13 +32,21 @@ export default function HomeScreen() {
     useState<number>(Date.now());
   const [queryRidesRegion, setQueryRidesRegion] = useState<Region>();
   const {
-    data: rides = [],
+    rides,
     isLoading,
     isUninitialized,
-    isError,
+    isError: isQueryRidesError,
     refetch,
   } = useGetRidesQuery(queryRidesRegion!, {
     skip: !queryRidesRegion,
+    selectFromResult: (result) => {
+      return {
+        rides: result.data ?? emptyArray,
+        isLoading: result.isLoading,
+        isUninitialized: result.isUninitialized,
+        isError: result.isError,
+      };
+    },
   });
   const ongoingRides = useAppSelector(selectOngoingRides);
   const ridesToDisplay = (
@@ -97,33 +106,37 @@ export default function HomeScreen() {
         followsUserLocation={true}
         onUserLocationChange={onUserLocationChange}
         onRegionChangeComplete={onRegionChangeComplete}>
-        {ridesToDisplay.map((ride) => (
-          <MarkerRide
-            key={ride.id}
-            ride={ride}
-            isShowingRoutes={ride.id === currentRide?.id}
-          />
-        ))}
+        {ridesToDisplay.length > 0 &&
+          ridesToDisplay.map((ride) => (
+            <MarkerRide
+              key={ride.id}
+              ride={ride}
+              isShowingRoutes={ride.id === currentRide?.id}
+            />
+          ))}
       </MapView>
-      {errorMsg && <ErrorMessage message={errorMsg} onRetry={refetch} />}
-      {isError && (
+      {errorMsg && <ErrorMessage message={errorMsg} />}
+      {isQueryRidesError && (
         <ErrorMessage
           message="We couldn't load the rides. Please check your internet connection and try again."
           onRetry={refetch}
         />
       )}
-      {!isLoading && !isError && !isUninitialized && rides.length === 0 && (
-        <ErrorMessage
-          message="No ride orders available near your location. Try adjusting the map or check back later."
-          onRetry={refetch}
-        />
-      )}
+      {!isLoading &&
+        !isQueryRidesError &&
+        !isUninitialized &&
+        rides.length === 0 && (
+          <ErrorMessage
+            message="No ride orders available near your location. Try adjusting the map or check back later."
+            onRetry={refetch}
+          />
+        )}
       <View style={styles.itemsContainer}>
         {isLoading ? (
           <Skeleton />
-        ) : (
+        ) : ridesToDisplay.length > 0 ? (
           <RidesCarousel rides={ridesToDisplay} onSnapToItem={onSnapToItem} />
-        )}
+        ) : null}
       </View>
     </View>
   );
@@ -136,7 +149,7 @@ const styles = StyleSheet.create({
   itemsContainer: {
     backgroundColor: 'transparent',
     position: 'absolute',
-    marginTop: 350,
+    marginTop: 400,
   },
   map: {
     width: '100%',
