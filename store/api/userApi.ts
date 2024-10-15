@@ -5,14 +5,14 @@ export const userApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getPassengers: builder.query<Passenger[], void>({
       query: () => '/passengers',
-      providesTags: ['Passengers'],
+      providesTags: ['Passenger'],
       transformResponse: (response: { passengers: Passenger[] }) => {
         return response.passengers;
       },
     }),
     getDrivers: builder.query<Driver[], void>({
       query: () => '/drivers',
-      providesTags: ['Drivers'],
+      providesTags: ['Driver'],
       transformResponse: (response: { drivers: Driver[] }) => {
         return response.drivers;
       },
@@ -20,7 +20,6 @@ export const userApi = baseApi.injectEndpoints({
     getPassenger: builder.query<Passenger, string>({
       query: (id) => `/passengers/${id}`,
       transformResponse: (response: Passenger) => {
-        console.log('response: passenger :', response);
         return response;
       },
       transformErrorResponse: (response: {

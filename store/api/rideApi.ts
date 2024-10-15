@@ -32,7 +32,6 @@ export const rideApi = baseApi.injectEndpoints({
     getOrderHistory: builder.query<Ride[], Ride['status']>({
       query: (status) => `/rides/orderHistory?status=${status}`,
       providesTags: (result = [], error, arg) => [
-        'Ride',
         ...result.map(({ id }) => ({ type: 'Ride', id }) as const),
       ],
     }),
@@ -42,10 +41,40 @@ export const rideApi = baseApi.injectEndpoints({
         method: 'POST',
         body: { driverId },
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: 'Ride', id },
-        'Ride',
-      ],
+      invalidatesTags: (result, error, { id }) => [{ type: 'Ride', id }],
+    }),
+    declineRide: builder.mutation<Ride, { id: string; driverId: string }>({
+      query: ({ id, driverId }) => ({
+        url: `/rides/${id}/decline`,
+        method: 'POST',
+        body: { driverId },
+      }),
+      invalidatesTags: (result, error, { id }) => [{ type: 'Ride', id }],
+      onQueryStarted: async (arg, { dispatch, queryFulfilled, getState }) => {
+        // update the ride status to declined in the store
+        const getRidePatchResult = dispatch(
+          rideApi.util.updateQueryData('getRide', arg.id, (draft) => {
+            return { ...draft, status: 'declined' };
+          })
+        );
+
+        // TODO: get the region from the store not working
+
+        const getRidesPatchResult = dispatch(
+          rideApi.util.updateQueryData('getRides', {} as Region, (draft) => {
+            return draft.map((ride) =>
+              ride.id === arg.id ? { ...ride, status: 'declined' } : ride
+            );
+          })
+        );
+
+        try {
+          await queryFulfilled;
+        } catch {
+          getRidePatchResult.undo();
+          getRidesPatchResult.undo();
+        }
+      },
     }),
     updateRideStatus: builder.mutation<
       Ride,
@@ -56,10 +85,7 @@ export const rideApi = baseApi.injectEndpoints({
         method: 'PATCH',
         body: { status },
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: 'Ride', id },
-        'Ride',
-      ],
+      invalidatesTags: (result, error, { id }) => [{ type: 'Ride', id }],
     }),
   }),
 });
@@ -68,6 +94,7 @@ export const {
   useGetRidesQuery,
   useGetRideQuery,
   useAcceptRideMutation,
+  useDeclineRideMutation,
   useUpdateRideStatusMutation,
   useGetOrderHistoryQuery,
 } = rideApi;
