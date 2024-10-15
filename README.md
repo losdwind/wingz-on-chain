@@ -18,9 +18,8 @@ A React Native project template designed to help you kickstart your mobile app d
 
 ## Preview
 
-<img src="https://github.com/mrzachnugent/react-native-reusables/assets/63797719/42c94108-38a7-498b-9c70-18640420f1bc"
-     alt="starter-base-template"
-     width="270" />
+![ezgif-6-a06b2a7f66](https://github.com/user-attachments/assets/ebbbb85d-c4e3-4d82-93e7-8ae77ba120a1)
+
 
 ## Getting Started
 
