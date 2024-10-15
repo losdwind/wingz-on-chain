@@ -20,16 +20,24 @@ import { XCircle } from '~/lib/icons/XCircle';
 import { useAppDispatch, useAppSelector } from '~/store/hooks';
 import { selectCurrentDriver } from '~/store/authSlice';
 import { performRideAction } from '~/store/rideSlice';
+import { useDeclineRideMutation } from '~/store/api/rideApi';
+import { Skeleton } from '../ui/skeleton';
+import React from 'react';
 
-export default function RideCard({ item }: { item: Ride }) {
+function RideCard({ item }: { item: Ride }) {
   const dispatch = useAppDispatch();
   const currentDriver = useAppSelector(selectCurrentDriver);
   const pickUpAddress = useCoordinateToAddress(item.pickupLocation);
   const destinationAddress = useCoordinateToAddress(item.destination);
-  const { data: passenger, refetch: refetchPassenger } = useGetPassengerQuery(
-    item.passengerId
-  );
-  const [buttonState, setButtonState] = useState<
+
+  const { data: passenger, isLoading: isLoadingPassenger } =
+    useGetPassengerQuery(item.passengerId);
+  const [declineRide] = useDeclineRideMutation();
+
+  const [declineButtonState, setDeclineButtonState] = useState<
+    'idle' | 'loading' | 'success' | 'error'
+  >('idle');
+  const [rideButtonState, setRideButtonState] = useState<
     'idle' | 'loading' | 'success' | 'error'
   >('idle');
   const [error, setError] = useState<string | null>(null);
@@ -53,9 +61,27 @@ export default function RideCard({ item }: { item: Ride }) {
     }
   };
 
+  const onDeclineRide = async (rideId: string) => {
+    setError(null);
+    try {
+      setDeclineButtonState('loading');
+      await declineRide({
+        id: rideId,
+        driverId: currentDriver?.driverId || '',
+      }).unwrap();
+      setDeclineButtonState('success');
+    } catch (error) {
+      console.log('decline error', error);
+      setDeclineButtonState('error');
+      setTimeout(() => {
+        setDeclineButtonState('idle');
+      }, 2000);
+    }
+  };
+
   const handleRideAction = async () => {
     try {
-      setButtonState('loading');
+      setRideButtonState('loading');
       setError(null);
       await dispatch(
         performRideAction({
@@ -64,15 +90,16 @@ export default function RideCard({ item }: { item: Ride }) {
           driverId: currentDriver?.driverId || '',
         })
       ).unwrap();
-      setButtonState('success');
+      setRideButtonState('success');
       setTimeout(() => {
-        setButtonState('idle');
+        setRideButtonState('idle');
       }, 1000);
     } catch (error) {
-      setButtonState('error');
+      console.log('ride action error', error);
+      setRideButtonState('error');
       setError((error as Error).message);
       setTimeout(() => {
-        setButtonState('idle');
+        setRideButtonState('idle');
       }, 2000);
     }
   };
@@ -92,7 +119,7 @@ export default function RideCard({ item }: { item: Ride }) {
         return 'N/A';
     }
   };
-  const getButtonBackgroundColor = () => {
+  const getButtonBackgroundColor = (buttonState: string) => {
     switch (buttonState) {
       case 'idle':
         return '';
@@ -102,10 +129,12 @@ export default function RideCard({ item }: { item: Ride }) {
         return 'bg-red-500';
       case 'success':
         return 'bg-green-500';
+      case 'decline':
+        return 'bg-red-500';
     }
   };
 
-  const isButtonDisabled = () => {
+  const isButtonDisabled = (buttonState: string) => {
     return (
       buttonState !== 'idle' ||
       item.status === 'dropped-off' ||
@@ -122,7 +151,9 @@ export default function RideCard({ item }: { item: Ride }) {
   return (
     <Card className="w-full max-w-md mx-auto overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-xl font-bold">Ride Details</CardTitle>
+        <CardTitle className="text-xl font-bold">
+          Ride Details: {item.id.split('-')[0]}
+        </CardTitle>
         <Badge className={`${getStatusColor(item.status)} text-white`}>
           <Text>
             {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
@@ -152,78 +183,96 @@ export default function RideCard({ item }: { item: Ride }) {
               {format(new Date(item.pickupTime), 'MMM d, yyyy HH:mm')}
             </Text>
           </View>
-          {passenger ? (
+          {isLoadingPassenger ? (
+            <Skeleton className="flex-1 h-4" />
+          ) : (
             <View className="flex-row justify-between items-center">
               <View className="flex-row items-center space-x-2 gap-2">
                 <User className="h-5 w-5 text-gray-500" />
                 <Text className="font-medium">
-                  {passenger?.name.charAt(0).toUpperCase() +
-                    passenger?.name.slice(1)}
+                  {passenger?.name ?? 'Anonymous'}
                 </Text>
               </View>
               <View className="flex-row items-center space-x-2 gap-2">
                 <Users className="h-4 w-4 text-gray-500" />
                 <Text className="font-medium">Passengers:</Text>
-                <Text>{passenger?.numOfPassengers}</Text>
+                <Text>{passenger?.numOfPassengers ?? 'N/A'}</Text>
               </View>
             </View>
-          ) : (
-            <Button variant="ghost" onPress={() => refetchPassenger()}></Button>
           )}
-
-          {/* <View className="flex-row items-center space-x-2 gap-2">
-            <Calendar className="h-4 w-4 text-purple-500" />
-            <Text className="font-medium">Order Time:</Text>
-            <Text>{format(new Date(item.timestamp), 'MMM d, yyyy HH:mm')}</Text>
-          </View>
-          <View className="flex-row items-center space-x-2 gap-2">
-            <Timer className="h-4 w-4 text-orange-500" />
-            <Text className="font-medium">Expected Duration:</Text>
-            <Text>35 mins</Text>
-          </View> */}
         </View>
       </CardContent>
       <CardFooter>
         <View className="w-full flex-row items-center gap-4">
-          <Button
-            variant="secondary"
-            onPress={handleCall}
-            disabled={!passenger?.phone}
-            className="flex-none">
-            <View className="flex-row gap-4">
-              <Phone className="h-4 w-4 text-gray-500" />
-              <Text>Call</Text>
-            </View>
-          </Button>
-          <Button
-            onPress={handleRideAction}
-            disabled={isButtonDisabled()}
-            className={`flex-1 h-12 justify-center items-center text-white ${getButtonBackgroundColor()} disabled:opacity-50`}>
-            {buttonState === 'idle' && (
-              <Text className="font-semibold text-white">
-                {error ? 'Retry' : getButtonText()}
-              </Text>
-            )}
-            {buttonState === 'loading' && (
-              <ActivityIndicator size="small" color="white" />
-            )}
-            {buttonState === 'success' && (
-              <View className="flex-row items-center">
-                <CheckCircle className="mr-2 h-5 w-5 text-white" />
-                <Text className="font-semibold text-white">Success</Text>
+          {item.status === 'accepted' && (
+            <Button
+              variant="secondary"
+              onPress={handleCall}
+              disabled={!passenger?.phone}
+              className="flex-none w-[100px]">
+              <View className="flex-row justify-center items-center gap-4">
+                <Phone className="h-4 w-4 text-gray-500" />
+                <Text>Call</Text>
               </View>
-            )}
-            {buttonState === 'error' && (
-              <View className="flex-row items-center">
-                <XCircle className="mr-2 h-5 w-5 text-white" />
-                <Text className="font-semibold text-white">
-                  {error || 'Error'}
+            </Button>
+          )}
+          {(item.status === 'pending' || item.status === 'declined') && (
+            <Button
+              variant="secondary"
+              disabled={isButtonDisabled(declineButtonState)}
+              onPress={() => onDeclineRide(item.id)}
+              className={`flex-none bg-red-500 ${
+                item.status === 'declined' ? 'w-full' : 'w-[100px]'
+              }`}>
+              <View className="flex-row justify-center items-center">
+                {declineButtonState === 'idle' && (
+                  <Text className="font-semibold text-white">Decline</Text>
+                )}
+                {declineButtonState === 'success' && (
+                  <Text className="font-semibold text-white">Declined</Text>
+                )}
+                {declineButtonState === 'error' && (
+                  <Text className="font-semibold text-white">Retry</Text>
+                )}
+                {declineButtonState === 'loading' && (
+                  <ActivityIndicator size="small" color="white" />
+                )}
+              </View>
+            </Button>
+          )}
+          {item.status !== 'declined' && (
+            <Button
+              onPress={handleRideAction}
+              disabled={isButtonDisabled(rideButtonState)}
+              className={`flex-1 h-12 justify-center items-center text-white ${getButtonBackgroundColor(rideButtonState)} disabled:opacity-50`}>
+              {rideButtonState === 'idle' && (
+                <Text className="font-semibold">
+                  {error ? 'Retry' : getButtonText()}
                 </Text>
-              </View>
-            )}
-          </Button>
+              )}
+              {rideButtonState === 'loading' && (
+                <ActivityIndicator size="small" color="white" />
+              )}
+              {rideButtonState === 'success' && (
+                <View className="flex-row items-center">
+                  <CheckCircle className="mr-2 h-5 w-5 text-white" />
+                  <Text className="font-semibold text-white">Success</Text>
+                </View>
+              )}
+              {rideButtonState === 'error' && (
+                <View className="flex-row items-center">
+                  <XCircle className="mr-2 h-5 w-5 text-white" />
+                  <Text className="font-semibold text-white">
+                    {error || 'Error'}
+                  </Text>
+                </View>
+              )}
+            </Button>
+          )}
         </View>
       </CardFooter>
     </Card>
   );
 }
+
+export default React.memo(RideCard);

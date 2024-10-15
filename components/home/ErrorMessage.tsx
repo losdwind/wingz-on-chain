@@ -6,14 +6,16 @@ export function ErrorMessage({
   onRetry,
 }: {
   message: string;
-  onRetry: () => void;
+  onRetry?: () => void;
 }) {
   return (
     <View style={styles.errorContainer}>
       <Text style={styles.errorText}>{message}</Text>
-      <Button onPress={onRetry}>
-        <Text>Retry</Text>
-      </Button>
+      {onRetry && (
+        <Button onPress={onRetry} className="bg-red-500 p-4">
+          <Text className="text-white">Retry</Text>
+        </Button>
+      )}
     </View>
   );
 }

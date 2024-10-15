@@ -21,7 +21,7 @@ export function RidesCarousel({
   const carouselRef = useRef<ICarouselInstance>(null);
 
   const renderedItem: CarouselRenderItem<Ride> = ({ item }) => {
-    return <RideCard item={item} />;
+    return <RideCard item={item} key={item.id} />;
   };
 
   return (

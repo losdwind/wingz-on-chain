@@ -17,6 +17,7 @@ export function MarkerRide({
         coordinate={ride.pickupLocation}
         title={`${ride.pickupLocation.latitude} ${ride.pickupLocation.longitude}`}
         description={`${ride.pickupLocation}\n${ride.passengerId}`}
+        opacity={isShowingRoutes ? 1 : 0.2}
       />
       <Marker
         key={ride.id + 'destination'}
@@ -24,6 +25,7 @@ export function MarkerRide({
         title={`${ride.destination.latitude} ${ride.destination.longitude}`}
         description={`${ride.destination}\n${ride.passengerId}`}
         pinColor="blue"
+        opacity={isShowingRoutes ? 1 : 0.2}
       />
 
       {isShowingRoutes && (
@@ -39,5 +41,3 @@ export function MarkerRide({
     </>
   );
 }
-
-export default MarkerRide;
