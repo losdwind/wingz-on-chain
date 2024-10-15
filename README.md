@@ -18,8 +18,7 @@ A React Native project template designed to help you kickstart your mobile app d
 
 ## Preview
 
-![ezgif-6-a06b2a7f66](https://github.com/user-attachments/assets/ebbbb85d-c4e3-4d82-93e7-8ae77ba120a1)
-
+https://github.com/user-attachments/assets/ee4b2400-df0d-4c8e-87c6-d7f2ef63333d
 
 ## Getting Started
 
